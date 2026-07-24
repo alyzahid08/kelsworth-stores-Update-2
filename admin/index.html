@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" href="/images/favicon.svg" type="image/svg+xml" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Orders — Kelsworth Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+
+<div class="admin-shell">
+  <aside class="admin-sidebar" id="adminSidebar"></aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div>
+        <h1>Orders</h1>
+        <p>Everything placed through the storefront checkout.</p>
+      </div>
+    </div>
+
+    <div class="stat-row" id="statRow"></div>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input type="text" id="searchInput" placeholder="Search order #, name, email, phone…" style="width:280px" />
+        <select id="statusFilter">
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="processing">Processing</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>City</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>Placed</th>
+        </tr>
+      </thead>
+      <tbody id="ordersBody">
+        <tr class="empty-row"><td colspan="6">Loading…</td></tr>
+      </tbody>
+    </table>
+  </main>
+</div>
+
+<div class="modal-overlay" id="orderModal">
+  <div class="modal-box" id="orderModalBody"></div>
+</div>
+
+<script src="js/admin.js"></script>
+<script>
+  mountAdminChrome("orders");
+
+  let currentOrders = [];
+
+  function statRowHTML(orders) {
+    const total = orders.length;
+    const pending = orders.filter((o) => o.status === "pending").length;
+    const revenue = orders
+      .filter((o) => o.status !== "cancelled")
+      .reduce((sum, o) => sum + Number(o.total), 0);
+    const delivered = orders.filter((o) => o.status === "delivered").length;
+    return `
+      <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${total}</div></div>
+      <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value">${pending}</div></div>
+      <div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value">${delivered}</div></div>
+      <div class="stat-card"><div class="stat-label">Revenue (net of cancelled)</div><div class="stat-value" style="font-size:24px">${formatPKR(revenue)}</div></div>`;
+  }
+
+  function rowHTML(o) {
+    return `
+      <tr>
+        <td><a href="#" data-open="${o.id}" style="text-decoration:underline">${o.order_number}</a></td>
+        <td>${o.first_name} ${o.last_name}<br><span style="color:var(--ink-soft);font-size:12px">${o.email}</span></td>
+        <td>${o.city}</td>
+        <td>${formatPKR(o.total)}</td>
+        <td>
+          <select class="status-select" data-status-for="${o.id}">
+            ${["pending", "processing", "shipped", "delivered", "cancelled"]
+              .map((s) => `<option value="${s}" ${s === o.status ? "selected" : ""}>${s[0].toUpperCase() + s.slice(1)}</option>`)
+              .join("")}
+          </select>
+        </td>
+        <td>${formatDate(o.created_at)}</td>
+      </tr>`;
+  }
+
+  function renderTable() {
+    const q = document.getElementById("searchInput").value.trim().toLowerCase();
+    const status = document.getElementById("statusFilter").value;
+    let list = currentOrders;
+    if (status !== "all") list = list.filter((o) => o.status === status);
+    if (q) {
+      list = list.filter((o) =>
+        [o.order_number, o.email, o.phone, `${o.first_name} ${o.last_name}`]
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+    const body = document.getElementById("ordersBody");
+    body.innerHTML = list.length
+      ? list.map(rowHTML).join("")
+      : `<tr class="empty-row"><td colspan="6">No orders match.</td></tr>`;
+
+    document.getElementById("statRow").innerHTML = statRowHTML(currentOrders);
+
+    body.querySelectorAll("[data-open]").forEach((a) => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        openOrderModal(Number(a.dataset.open));
+      });
+    });
+    body.querySelectorAll("[data-status-for]").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        const id = Number(sel.dataset.statusFor);
+        try {
+          await adminFetch(`/api/admin/orders/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: sel.value }),
+          });
+          const o = currentOrders.find((x) => x.id === id);
+          if (o) o.status = sel.value;
+          document.getElementById("statRow").innerHTML = statRowHTML(currentOrders);
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+  }
+
+  async function openOrderModal(id) {
+    const modal = document.getElementById("orderModal");
+    const body = document.getElementById("orderModalBody");
+    body.innerHTML = "Loading…";
+    modal.classList.add("open");
+    try {
+      const o = await adminFetch(`/api/admin/orders/${id}`);
+      body.innerHTML = `
+        <button class="modal-close" id="closeModal">✕</button>
+        <h3>Order ${o.order_number}</h3>
+        <p style="font-size:13px;color:var(--ink-soft);margin-bottom:18px">Placed ${formatDate(o.created_at)}</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;font-size:13.5px">
+          <div><strong>Customer</strong><br>${o.first_name} ${o.last_name}<br>${o.email}<br>${o.phone}</div>
+          <div><strong>Ship to</strong><br>${o.address}<br>${o.city} ${o.postal_code || ""}</div>
+        </div>
+        ${o.delivery_notes ? `<p style="font-size:13px;background:var(--paper-alt);border:1px dashed var(--line);padding:10px 12px;margin-bottom:12px"><strong>Delivery notes:</strong> ${o.delivery_notes}</p>` : ""}
+        ${o.gift_message ? `<p style="font-size:13px;background:var(--paper-alt);border:1px dashed var(--line);padding:10px 12px;margin-bottom:12px">🎁 <strong>Gift message:</strong> ${o.gift_message}</p>` : ""}
+        <table style="margin-bottom:16px">
+          <thead><tr><th>Item</th><th>Size</th><th>Qty</th><th>Unit</th><th>Line Total</th></tr></thead>
+          <tbody>
+            ${o.items
+              .map(
+                (i) => `<tr><td>${i.product_name}</td><td>${i.size}</td><td>${i.qty}</td><td>${formatPKR(i.unit_price)}</td><td>${formatPKR(i.unit_price * i.qty)}</td></tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+        <div style="text-align:right;font-family:var(--font-mono);font-size:13px;line-height:1.9">
+          Subtotal: ${formatPKR(o.subtotal)}<br>
+          Shipping: ${o.shipping === 0 ? "Free" : formatPKR(o.shipping)}<br>
+          ${o.tax ? `Tax: ${formatPKR(o.tax)}<br>` : ""}
+          ${o.discount ? `Discount${o.promo_code ? ` (${o.promo_code})` : ""}: −${formatPKR(o.discount)}<br>` : ""}
+          <strong style="font-size:16px">Total: ${formatPKR(o.total)}</strong>
+        </div>
+      `;
+      document.getElementById("closeModal").addEventListener("click", () => modal.classList.remove("open"));
+    } catch (err) {
+      body.innerHTML = `<p style="color:var(--accent)">${err.message}</p>`;
+    }
+  }
+  document.getElementById("orderModal").addEventListener("click", (e) => {
+    if (e.target.id === "orderModal") e.currentTarget.classList.remove("open");
+  });
+
+  document.getElementById("searchInput").addEventListener("input", renderTable);
+  document.getElementById("statusFilter").addEventListener("change", renderTable);
+
+  (async () => {
+    try {
+      currentOrders = await adminFetch("/api/admin/orders");
+      renderTable();
+    } catch (err) {
+      document.getElementById("ordersBody").innerHTML = `<tr class="empty-row"><td colspan="6">${err.message}</td></tr>`;
+    }
+  })();
+</script>
+</body>
+</html>
