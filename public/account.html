@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Your Account — Kelsworth</title>
 <meta name="description" content="Manage your Kelsworth account: orders, wishlist, addresses and more." />
+<meta name="robots" content="noindex, follow" />
 <meta property="og:site_name" content="Kelsworth" />
 <meta property="og:title" content="Your Account — Kelsworth" />
 <meta property="og:description" content="Manage your Kelsworth account: orders, wishlist, addresses and more." />
@@ -23,7 +24,7 @@
 
 <header class="site-header" id="site-header"></header>
 
-<div class="container" id="mainContainer" style="padding-top:20px">
+<div class="container" id="main-content" tabindex="-1" style="padding-top:20px">
   <div class="breadcrumb"><a href="index.html">Home</a> / <span>Account</span></div>
   <div id="accountContent">
     <p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft)">Loading…</p>
@@ -37,7 +38,7 @@
 <script src="js/site.js"></script>
 <script>
   mountChrome("account");
-  const mainContainer = document.getElementById("mainContainer");
+  const mainContainer = document.getElementById("main-content");
 
   const STATUS_LABELS = {
     pending: "Pending", processing: "Processing", shipped: "Shipped",
@@ -61,7 +62,7 @@
           <form id="loginForm" style="display:flex;flex-direction:column;gap:12px">
             <div class="field"><label for="li_email">Email</label><input type="email" id="li_email" required /></div>
             <div class="field"><label for="li_password">Password</label><input type="password" id="li_password" required /></div>
-            <p id="loginError" style="display:none;color:var(--accent);font-size:12.5px"></p>
+            <p id="loginError" role="alert" style="display:none;color:var(--accent);font-size:12.5px"></p>
             <button type="submit" class="btn full">Log In</button>
           </form>
         </div>
@@ -74,7 +75,7 @@
             </div>
             <div class="field"><label for="r_email">Email</label><input type="email" id="r_email" required /></div>
             <div class="field"><label for="r_password">Password (min. 8 characters)</label><input type="password" id="r_password" required minlength="8" /></div>
-            <p id="registerError" style="display:none;color:var(--accent);font-size:12.5px"></p>
+            <p id="registerError" role="alert" style="display:none;color:var(--accent);font-size:12.5px"></p>
             <button type="submit" class="btn outline full">Create Account</button>
           </form>
         </div>
@@ -145,11 +146,12 @@
       <a href="product.html?id=${p.id}">
         <div class="thumb">
           ${p.badge ? `<span class="badge ${onSale ? "sale" : ""}">${p.badge}</span>` : ""}
-          <img src="${p.image}" alt="${p.name}" loading="lazy" />
+          <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" />
         </div>
         <div class="card-body">
           <span class="cat">${p.category}</span>
           <h3>${p.name}</h3>
+          ${ratingSnippetHTML(p)}
           <div class="price-row">
             ${onSale
               ? `<span class="price was">${formatPKR(p.price)}</span><span class="price now">${formatPKR(p.salePrice)}</span>`
@@ -164,6 +166,7 @@
 
   async function renderOrdersTab() {
     const panel = document.getElementById("tabPanel");
+    panel.innerHTML = `<div class="skeleton-line skeleton-block" style="height:90px;margin-bottom:12px"></div><div class="skeleton-line skeleton-block" style="height:90px"></div>`;
     let orders = [];
     try { orders = await fetchCustomerOrders(); } catch (e) {}
     if (!orders.length) {
@@ -216,6 +219,7 @@
 
   async function renderWishlistTab() {
     const panel = document.getElementById("tabPanel");
+    panel.innerHTML = `<div class="product-grid">${skeletonCards(4)}</div>`;
     const items = await fetchWishlist();
     if (!items.length) {
       panel.innerHTML = `<p class="account-empty">Nothing saved yet — tap the heart on any product to add it here.</p>`;
@@ -235,6 +239,7 @@
 
   async function renderRecentTab() {
     const panel = document.getElementById("tabPanel");
+    panel.innerHTML = `<div class="product-grid">${skeletonCards(4)}</div>`;
     const items = await recentlyViewedProducts();
     if (!items.length) {
       panel.innerHTML = `<p class="account-empty">Products you view will show up here.</p>`;

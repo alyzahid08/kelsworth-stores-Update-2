@@ -144,6 +144,24 @@
       </table>`;
   }
 
+  function lowStockHTML(items) {
+    if (!items.length) return `<p style="font-size:13px;color:var(--ink-soft)">Nothing low on stock right now.</p>`;
+    return `
+      <table>
+        <thead><tr><th>Product</th><th>Low Sizes</th></tr></thead>
+        <tbody>
+          ${items
+            .map(
+              (p) => `<tr>
+                <td><a href="products.html" style="text-decoration:underline">${p.name}</a></td>
+                <td>${p.lowSizes.map((s) => `${s.size} (${s.stock === 0 ? "out" : s.stock})`).join(", ")}</td>
+              </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>`;
+  }
+
   (async () => {
     try {
       const d = await adminFetch("/api/admin/analytics");
@@ -172,6 +190,11 @@
             <div class="stat-label" style="margin-bottom:10px">Top Customers</div>
             ${topCustomersHTML(d.topCustomers)}
           </div>
+        </div>
+
+        <div style="margin-top:24px">
+          <div class="stat-label" style="margin-bottom:10px">Low Stock Alerts</div>
+          ${lowStockHTML(d.lowStockProducts)}
         </div>
       `;
     } catch (err) {

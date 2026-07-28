@@ -7,6 +7,7 @@
 <title id="pageTitleTag">Product — Kelsworth</title>
 <meta name="description" id="metaDescription" content="Shop men's denim at Kelsworth." />
 <meta property="og:site_name" content="Kelsworth" />
+<link rel="canonical" id="canonicalLink" href="https://www.kelsworth.com/product.html" />
 <meta property="og:title" id="ogTitle" content="Kelsworth" />
 <meta property="og:description" id="ogDescription" content="Shop men's denim at Kelsworth." />
 <meta property="og:type" content="product" />
@@ -22,13 +23,20 @@
 
 <header class="site-header" id="site-header"></header>
 
-<div class="container">
+<div id="main-content" tabindex="-1" class="container">
   <div class="breadcrumb">
     <a href="index.html">Home</a> / <a href="collection.html">Men's Denim</a> / <span id="crumbName">…</span>
   </div>
 
   <div class="product-detail" id="productDetail">
-    <p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);padding:20px 0">Loading product…</p>
+    <div class="skeleton-thumb skeleton-block" style="aspect-ratio:4/5"></div>
+    <div>
+      <div class="skeleton-line skeleton-block" style="width:30%;height:11px"></div>
+      <div class="skeleton-line skeleton-block" style="width:70%;height:26px;margin-top:14px"></div>
+      <div class="skeleton-line skeleton-block" style="width:20%;height:18px;margin-top:10px"></div>
+      <div class="skeleton-line skeleton-block" style="width:90%;height:44px;margin-top:24px"></div>
+      <div class="skeleton-line skeleton-block" style="width:100%;height:48px;margin-top:20px"></div>
+    </div>
   </div>
 
   <div class="cross-sell" id="completeTheLookSection" style="display:none">
@@ -80,6 +88,15 @@
 </div>
 
 <footer class="site-footer" id="site-footer"></footer>
+
+<div class="sticky-atc" id="stickyAtc">
+  <img id="stickyAtcImg" alt="" />
+  <div class="sa-info">
+    <div class="sa-name" id="stickyAtcName"></div>
+    <div class="sa-price" id="stickyAtcPrice"></div>
+  </div>
+  <button class="btn" id="stickyAtcBtn" type="button">Add to Cart</button>
+</div>
 
 <div class="lightbox-overlay" id="lightbox">
   <div class="lightbox-stage" id="lightboxStage">
@@ -228,12 +245,27 @@
   function updateAddButtonState() {
     const addBtn = document.getElementById("addToCartBtn");
     if (!addBtn) return;
-    if (!product.inStock) { addBtn.disabled = true; addBtn.textContent = "Out of Stock"; return; }
-    if (!selectedSize) { addBtn.disabled = true; addBtn.textContent = product.sizeType === "waist_length" ? "Select waist & length" : "Select a size"; return; }
+    const stickyBtn = document.getElementById("stickyAtcBtn");
+    if (!product.inStock) {
+      addBtn.disabled = true; addBtn.textContent = "Out of Stock";
+      if (stickyBtn) { stickyBtn.disabled = true; stickyBtn.textContent = "Out of Stock"; }
+      return;
+    }
+    if (!selectedSize) {
+      const label = product.sizeType === "waist_length" ? "Select waist & length" : "Select a size";
+      addBtn.disabled = true; addBtn.textContent = label;
+      if (stickyBtn) { stickyBtn.disabled = false; stickyBtn.textContent = "Select a Size"; }
+      return;
+    }
     const stock = product.stockBySize[selectedSize];
-    if (stock !== undefined && Number(stock) <= 0) { addBtn.disabled = true; addBtn.textContent = "Out of Stock"; return; }
+    if (stock !== undefined && Number(stock) <= 0) {
+      addBtn.disabled = true; addBtn.textContent = "Out of Stock";
+      if (stickyBtn) { stickyBtn.disabled = true; stickyBtn.textContent = "Out of Stock"; }
+      return;
+    }
     addBtn.disabled = false;
     addBtn.textContent = "Add to Cart";
+    if (stickyBtn) { stickyBtn.disabled = false; stickyBtn.textContent = "Add to Cart"; }
     renderStockLine();
   }
 
@@ -442,6 +474,7 @@
     document.getElementById("addToCartBtn").addEventListener("click", () => {
       if (!selectedSize) return;
       addToCart(product.id, selectedSize, qty);
+      announce(`${product.name}, size ${selectedSize}, added to cart.`);
       const btn = document.getElementById("addToCartBtn");
       btn.textContent = "Added ✓";
       setTimeout(() => (btn.textContent = "Add to Cart"), 1400);
@@ -458,7 +491,38 @@
     });
 
     setupWishlistButton();
+    setupStickyAtc();
     updateAddButtonState();
+  }
+
+  function setupStickyAtc() {
+    const bar = document.getElementById("stickyAtc");
+    if (!bar) return;
+    document.getElementById("stickyAtcImg").src = product.images[0] || product.image;
+    document.getElementById("stickyAtcName").textContent = product.name;
+    document.getElementById("stickyAtcPrice").textContent = formatPKR(product.salePrice ?? product.price);
+
+    document.getElementById("stickyAtcBtn").addEventListener("click", () => {
+      const mainBtn = document.getElementById("addToCartBtn");
+      if (!selectedSize && product.inStock) {
+        document.querySelector(".pd-block")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (!mainBtn.disabled) mainBtn.click();
+    });
+
+    // Only meaningful once there's a real Add to Cart button to track — show
+    // the sticky bar once that button scrolls out of view (mobile only; CSS
+    // keeps this hidden entirely above the 800px breakpoint).
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const visible = !entry.isIntersecting && window.innerWidth <= 800;
+        bar.classList.toggle("visible", visible);
+        document.body.style.paddingBottom = visible ? "128px" : "";
+      },
+      { threshold: 0 }
+    );
+    observer.observe(document.getElementById("addToCartBtn"));
   }
 
   async function setupWishlistButton() {
@@ -504,11 +568,12 @@
     <a class="product-card" href="product.html?id=${p.id}">
       <div class="thumb">
         ${p.badge ? `<span class="badge ${onSale ? "sale" : ""}">${p.badge}</span>` : ""}
-        <img src="${p.image}" alt="${p.name}" loading="lazy" />
+        <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" />
       </div>
       <div class="card-body">
         <span class="cat">${p.category}</span>
         <h3>${p.name}</h3>
+        ${ratingSnippetHTML(p)}
         <div class="price-row">
           ${onSale
             ? `<span class="price was">${formatPKR(p.price)}</span><span class="price now">${formatPKR(p.salePrice)}</span>`
@@ -529,7 +594,7 @@
       .map(
         (p, i) => `
       <div class="ctl-item">
-        <a href="product.html?id=${p.id}"><img src="${p.image}" alt="${p.name}" loading="lazy" /></a>
+        <a href="product.html?id=${p.id}"><img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" /></a>
         <label>
           <input type="checkbox" checked data-ctl-index="${i}" />
           <span>${p.name}<span class="ctl-price">${formatPKR(itemPrice(p))}</span></span>
@@ -571,7 +636,7 @@
       ${i > 0 ? `<span class="fbt-plus">+</span>` : ""}
       <div class="fbt-thumb ${i === 0 ? "self" : ""}">
         <input type="checkbox" class="fbt-check" checked ${i === 0 ? "disabled" : `data-fbt-index="${i - 1}"`} />
-        <img src="${p.image}" alt="${p.name}" loading="lazy" />
+        <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" />
         <p>${formatPKR(itemPrice(p))}</p>
       </div>`
       )
@@ -710,7 +775,7 @@
           <label for="reviewPhotos">Photos (optional)</label>
           <input type="file" id="reviewPhotos" accept="image/*" multiple />
         </div>
-        <p id="reviewError" style="display:none;color:var(--accent);font-size:13px;margin-top:10px"></p>
+        <p id="reviewError" role="alert" style="display:none;color:var(--accent);font-size:13px;margin-top:10px"></p>
         <button class="btn" id="submitReviewBtn" style="margin-top:16px">Submit Review</button>
       </div>`;
 
@@ -747,6 +812,47 @@
 
   /* ---------------------------- Boot ---------------------------- */
 
+  function injectProductSchema(p) {
+    const productLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: p.name,
+      image: p.images && p.images.length ? p.images : [p.image],
+      description: p.description || `${p.name} at Kelsworth.`,
+      sku: p.sku,
+      brand: { "@type": "Brand", name: "Kelsworth" },
+      offers: {
+        "@type": "Offer",
+        url: location.href,
+        priceCurrency: "PKR",
+        price: p.salePrice ?? p.price,
+        availability: p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      },
+    };
+    if (p.reviewCount) {
+      productLd.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: p.rating,
+        reviewCount: p.reviewCount,
+      };
+    }
+    const breadcrumbLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: `${location.origin}/index.html` },
+        { "@type": "ListItem", position: 2, name: "Men's Denim", item: `${location.origin}/collection.html` },
+        { "@type": "ListItem", position: 3, name: p.name, item: location.href },
+      ],
+    };
+    [productLd, breadcrumbLd].forEach((data) => {
+      const tag = document.createElement("script");
+      tag.type = "application/ld+json";
+      tag.textContent = JSON.stringify(data);
+      document.head.appendChild(tag);
+    });
+  }
+
   (async () => {
     product = await fetchProductById(productIdParam);
     if (!product) {
@@ -762,6 +868,8 @@
     document.getElementById("twitterTitle").setAttribute("content", shareTitle);
     document.getElementById("twitterDescription").setAttribute("content", shareDesc);
     document.getElementById("crumbName").textContent = product.name;
+    document.getElementById("canonicalLink").setAttribute("href", `https://www.kelsworth.com/product.html?id=${product.id}`);
+    injectProductSchema(product);
 
     variantsData = await fetchProductVariants(product.id);
     addRecentlyViewed(product.id);

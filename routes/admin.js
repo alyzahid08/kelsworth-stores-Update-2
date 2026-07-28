@@ -1,6 +1,7 @@
 const express = require("express");
 const { query } = require("../db");
 const { requireAdminApi } = require("../middleware/auth");
+const { sendOrderStatusUpdate } = require("../lib/email");
 
 const router = express.Router();
 router.use(requireAdminApi);
@@ -64,11 +65,14 @@ router.patch("/orders/:id", async (req, res) => {
   }
   try {
     const { rows } = await query(
-      "UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, status",
+      "UPDATE orders SET status = $1 WHERE id = $2 RETURNING *",
       [status, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: "Order not found" });
-    res.json(rows[0]);
+    // Best-effort, same pattern as the confirmation email at checkout — never
+    // let a slow/failed email hold up or fail the status update itself.
+    sendOrderStatusUpdate(rows[0]);
+    res.json({ id: rows[0].id, status: rows[0].status });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not update order" });
@@ -128,12 +132,12 @@ router.post("/products", async (req, res) => {
       `INSERT INTO products
         (slug, name, category, fit, color, price, sale_price, sizes, image, badge, description, fabric, care, stock, stock_by_size, active,
          images, video_url, tags, sku, sku_by_size, style_code, size_type, low_stock_threshold, complete_the_look, frequently_bought_with,
-         estimated_delivery, return_policy, material, stretch, collection)
+         estimated_delivery, return_policy, material, stretch, collection, is_bestseller)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
                $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
                COALESCE($27, '3–5 working days in major cities, 5–7 elsewhere'),
                COALESCE($28, 'Free exchange within 14 days of delivery, tags attached and unworn.'),
-               $29, $30, $31)
+               $29, $30, $31, $32)
        RETURNING *`,
       [
         body.slug, body.name, body.category, body.fit, body.color,
@@ -148,6 +152,7 @@ router.post("/products", async (req, res) => {
         JSON.stringify(completeTheLook), JSON.stringify(frequentlyBoughtWith),
         body.estimatedDelivery || null, body.returnPolicy || null,
         body.material || null, body.stretch || "none", body.collection || null,
+        Boolean(body.isBestseller),
       ]
     );
     res.status(201).json(rows[0]);
@@ -168,6 +173,7 @@ router.patch("/products/:id", async (req, res) => {
     videoUrl: "video_url", sku: "sku", styleCode: "style_code", sizeType: "size_type",
     lowStockThreshold: "low_stock_threshold", estimatedDelivery: "estimated_delivery",
     returnPolicy: "return_policy", material: "material", stretch: "stretch", collection: "collection",
+    isBestseller: "is_bestseller",
   };
   const jsonFieldMap = {
     images: "images", tags: "tags", skuBySize: "sku_by_size",
@@ -232,6 +238,47 @@ router.delete("/products/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not delete product" });
+  }
+});
+
+/* --------------------------- Contact Messages --------------------------- */
+
+// GET /api/admin/contact-messages
+router.get("/contact-messages", async (req, res) => {
+  try {
+    const { rows } = await query("SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 200");
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not load messages" });
+  }
+});
+
+// PATCH /api/admin/contact-messages/:id — mark read/unread
+router.patch("/contact-messages/:id", async (req, res) => {
+  const { isRead } = req.body || {};
+  try {
+    const { rows } = await query(
+      "UPDATE contact_messages SET is_read = $1 WHERE id = $2 RETURNING id",
+      [Boolean(isRead), req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Message not found" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not update message" });
+  }
+});
+
+// DELETE /api/admin/contact-messages/:id
+router.delete("/contact-messages/:id", async (req, res) => {
+  try {
+    const { rows } = await query("DELETE FROM contact_messages WHERE id = $1 RETURNING id", [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: "Message not found" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not delete message" });
   }
 });
 
@@ -347,6 +394,7 @@ router.get("/analytics", async (req, res) => {
       { rows: bestSellers },
       { rows: customerTotals },
       { rows: topCustomers },
+      { rows: stockRows },
     ] = await Promise.all([
       query(`
         SELECT
@@ -399,6 +447,10 @@ router.get("/analytics", async (req, res) => {
         ORDER BY total_spent DESC
         LIMIT 5
       `),
+      query(`
+        SELECT id, name, slug, sizes, stock_by_size, low_stock_threshold
+        FROM products WHERE active = true
+      `),
     ]);
 
     // Fill in any of the last 30 days that had zero orders, so the chart
@@ -413,12 +465,31 @@ router.get("/analytics", async (req, res) => {
       daily.push({ day: key, revenue: found ? found.revenue : 0, orders: found ? found.orders : 0 });
     }
 
+    // Small catalog, so computing this in JS is simpler and just as fast as
+    // a JSONB-unnesting query would be.
+    const lowStockProducts = [];
+    for (const p of stockRows) {
+      const stockBySize = p.stock_by_size || {};
+      const threshold = p.low_stock_threshold ?? 5;
+      const sizes = p.sizes || [];
+      const lowSizes = sizes.filter((s) => Number(stockBySize[s] ?? 0) <= threshold);
+      if (lowSizes.length) {
+        lowStockProducts.push({
+          name: p.name,
+          slug: p.slug,
+          lowSizes: lowSizes.map((s) => ({ size: s, stock: Number(stockBySize[s] ?? 0) })),
+        });
+      }
+    }
+    lowStockProducts.sort((a, b) => Math.min(...a.lowSizes.map((s) => s.stock)) - Math.min(...b.lowSizes.map((s) => s.stock)));
+
     res.json({
       ...totalsRows[0],
       ...customerTotals[0],
       dailyRevenue: daily,
       bestSellers,
       topCustomers,
+      lowStockProducts: lowStockProducts.slice(0, 12),
     });
   } catch (err) {
     console.error(err);

@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Checkout — Kelsworth</title>
 <meta name="description" content="Complete your order at Kelsworth. Cash on Delivery available across Pakistan." />
+<meta name="robots" content="noindex, follow" />
 <meta property="og:site_name" content="Kelsworth" />
 <meta property="og:title" content="Checkout — Kelsworth" />
 <meta property="og:description" content="Complete your order at Kelsworth. Cash on Delivery available across Pakistan." />
@@ -23,7 +24,7 @@
 
 <header class="site-header" id="site-header"></header>
 
-<div class="container">
+<div id="main-content" tabindex="-1" class="container">
   <div class="breadcrumb"><a href="index.html">Home</a> / <a href="cart.html">Cart</a> / <span>Checkout</span></div>
   <div class="collection-head"><h1>Checkout</h1></div>
 
@@ -51,6 +52,11 @@
 </datalist>
 
 <footer class="site-footer" id="site-footer"></footer>
+
+<div class="sticky-checkout-bar" id="stickyCheckoutBar">
+  <div class="sc-total"><span>Total</span><strong id="stickyCheckoutTotal"></strong></div>
+  <button class="btn" type="submit" form="checkoutForm" id="stickyPlaceOrderBtn">Place Order</button>
+</div>
 
 <script src="js/api.js"></script>
 <script src="js/cart.js"></script>
@@ -159,7 +165,7 @@
     document.getElementById("checkoutContent").innerHTML = `
       <div class="checkout-layout">
         <form id="checkoutForm">
-          <p id="formError" style="display:none;color:var(--accent);font-size:13px;margin-bottom:16px"></p>
+          <p id="formError" role="alert" style="display:none;color:var(--accent);font-size:13px;margin-bottom:16px"></p>
           ${prefill
             ? `<p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px">Checking out as <strong>${prefill.email}</strong> — <a href="account.html" style="text-decoration:underline">not you?</a></p>`
             : `<p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;border:1px dashed var(--line);padding:12px 14px">Checking out as a guest. <a href="account.html" style="text-decoration:underline">Log in</a> for faster checkout with saved addresses — or just continue below, no account needed.</p>`}
@@ -254,6 +260,9 @@
         ${summaryHTML(lines, subtotal, shipping, tax, discount, appliedCode, total)}
       </div>`;
 
+    const stickyTotalEl = document.getElementById("stickyCheckoutTotal");
+    if (stickyTotalEl) stickyTotalEl.textContent = formatPKR(total);
+
     document.querySelectorAll("[data-address-card]").forEach((card) => {
       card.addEventListener("click", () => {
         selectedAddressId = card.dataset.addressCard;
@@ -295,6 +304,8 @@
 
       btn.disabled = true;
       btn.textContent = "Placing order…";
+      const stickyBtn = document.getElementById("stickyPlaceOrderBtn");
+      if (stickyBtn) { stickyBtn.disabled = true; stickyBtn.textContent = "Placing order…"; }
 
       const giftMessageEl = document.getElementById("giftMessage");
       const saveAddressEl = document.getElementById("saveAddress");
@@ -319,6 +330,8 @@
       try {
         const order = await submitOrder(payload);
         clearCart();
+        const stickyBar = document.getElementById("stickyCheckoutBar");
+        if (stickyBar) stickyBar.style.display = "none";
         document.getElementById("checkoutContent").innerHTML = `
           <div class="confirm-box">
             <div class="check">✓</div>
@@ -337,6 +350,7 @@
         errorEl.style.display = "block";
         btn.disabled = false;
         btn.textContent = "Place Order";
+        if (stickyBtn) { stickyBtn.disabled = false; stickyBtn.textContent = "Place Order"; }
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     });
@@ -345,6 +359,8 @@
   (async () => {
     const cart = getCart();
     if (cart.length === 0) {
+      const stickyBar = document.getElementById("stickyCheckoutBar");
+      if (stickyBar) stickyBar.style.display = "none";
       document.getElementById("checkoutContent").innerHTML = `
         <div class="empty-cart">
           <h2>Your cart is empty</h2>

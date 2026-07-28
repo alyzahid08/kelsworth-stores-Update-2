@@ -11,24 +11,35 @@ schema.sql                Table definitions (run automatically by the seed scrip
 seed.js                    Creates tables, demo products, your first admin login,
                             and backfills stock for products that predate stock tracking
 routes/                    API endpoints
-  products.js                Public product listing/detail
+  products.js                Public product listing/detail/search/reviews/variants
   orders.js                   Checkout, stock decrement, order lookup
-  customers.js                 Customer register/login/order history
+  customers.js                 Register/login/order history/addresses/wishlist
+  contact.js                    Public contact form submissions
   promo.js                      Public promo code validation (cart preview)
   adminAuth.js                   Admin login/logout/change password
-  admin.js                        Admin CRUD: orders, products, promo codes
+  admin.js                        Admin CRUD: orders, products, promo codes,
+                                   analytics, contact messages, review moderation
 middleware/
   auth.js                    Admin login/session handling
   customerAuth.js             Customer login/session handling (separate from admin)
 lib/
-  email.js                   Order confirmation emails (optional — see below)
+  email.js                   Order confirmation/status/welcome emails (optional)
   promo.js                    Shared promo code validation logic
 public/                    The storefront
-  index.html, collection.html, product.html, cart.html, checkout.html
-  track.html                  Order tracking (order number + email)
-  account.html                  Customer login/register + order history
+  index.html                  Home — new arrivals, best sellers, testimonials
+  collection.html               Full catalog with live search + multi-filters
+  product.html                    Gallery, variants, reviews, cross-sell
+  cart.html, checkout.html          Cart and checkout (guest or logged in)
+  account.html                       Orders, wishlist, addresses, profile
+  track.html                          Order tracking (order number + email)
+  about.html, contact.html, faq.html,   Business/trust pages
+  shipping.html, refund.html,
+  privacy.html
+  robots.txt                          Crawler rules (sitemap.xml is generated
+                                       dynamically by server.js, not a static file)
 admin/                     The admin panel
-  login.html, index.html (orders), products.html, promo-codes.html
+  login.html, index.html (orders), dashboard.html (analytics), products.html,
+  promo-codes.html, messages.html (contact form submissions)
 ```
 
 ## 1. What you need before starting
@@ -82,33 +93,46 @@ every deploy — you don't need to toggle it on and off anymore).
 `/admin/login.html` — log in with your `ADMIN_INITIAL_USERNAME` /
 `ADMIN_INITIAL_PASSWORD`. You'll land on the **Dashboard**. From there:
 - **Dashboard** — revenue (today/this month/all-time), order status
-  breakdown, a 30-day revenue chart, best-selling products, and top
-  customers by spend. All computed directly in the database, so it stays
-  fast as orders grow.
+  breakdown, a 30-day revenue chart, best-selling products, top customers
+  by spend, and low-stock alerts. All computed directly in the database, so
+  it stays fast as orders grow.
 - **Orders** — every order lands here. Search, filter by status, view full
-  details, update status (Pending → Processing → Shipped → Delivered).
+  details, update status (Pending → Processing → Shipped → Delivered —
+  each status change emails the customer if SMTP is configured), export
+  the current filtered list to CSV.
 - **Products** — add, edit, delete, or hide products. Each size gets its
   own stock number — set a size to 0 to show it as sold out on the
-  storefront without deleting the product.
+  storefront without deleting the product. Low/out-of-stock items are
+  flagged in the list, and a checkbox flags a product for the homepage
+  Best Sellers row.
 - **Promo Codes** — create percentage-off codes, optionally with a minimum
   order value and an expiry date. Disable a code any time without deleting
   it (so past orders that used it stay accurate).
+- **Messages** — every contact form submission from `/contact.html` lands
+  here (and is saved even if you haven't set up SMTP yet — email is just a
+  notification on top, the database is always the source of truth).
 
 **Change your password** after first login — no UI button for this yet, but
 the API supports it: `POST /api/admin/change-password` with
 `{"currentPassword": "...", "newPassword": "..."}` while logged in.
 
-## 6. Turning on order confirmation emails (optional)
-Without any setup, checkout still works fine — it just won't email a
-confirmation (the order is still saved and visible in the admin panel and
-on the tracking page either way). To turn emails on:
+## 6. Turning on transactional emails (optional)
+Without any setup, the store still works fine — emails just don't send (the
+order/message is still saved either way). To turn emails on:
 
 1. Sign up for a free transactional email provider — **Brevo** (brevo.com)
    is a solid free option (300 emails/day free).
 2. In Brevo: **SMTP & API** settings → copy your SMTP login details.
 3. Add these to your `.env` (or Railway Variables):
    - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`
+   - Optionally `CONTACT_TO_EMAIL` if you want contact form notifications
+     sent somewhere other than `SMTP_USER`
 4. Redeploy — that's it, no code changes needed.
+
+Once configured, four emails send automatically: order confirmation
+(checkout), order status updates (whenever an admin changes an order's
+status), a welcome email (new account signup), and contact form
+notifications (with reply-to set to the sender, so you can just hit reply).
 
 ## 7. Customer accounts vs. guest checkout
 Customers can check out as a guest (no account needed) or create an account
@@ -125,34 +149,67 @@ of storing files on the server — ask me when you're ready.
 
 ## 9. What's real vs. what's next
 **Real and working right now:**
+- Full product experience — image gallery with zoom/lightbox/swipe, color
+  and waist×length variants, fabric/care/shipping info, SKU and stock/low-
+  stock indicators, tags, share buttons
+- Live search (instant suggestions, thumbnails, keyboard nav, recent
+  searches) and multi-filter browsing (price, size, color, material,
+  stretch, collection, fit, availability)
+- Star ratings and a full review system (verified purchase badges, photo/
+  video uploads, helpful votes, sorting/filtering) — shown on the product
+  page and as a summary on every product card sitewide
+- Complete the Look, Frequently Bought Together, and Related Products
+- Cart: free shipping progress bar, save for later, recommendations,
+  estimated shipping/tax, auto-revalidated promo codes
+- Checkout: guest checkout, saved addresses with autofill, city
+  autocomplete, phone validation, delivery notes, gift messages
+- Customer accounts: order history with reorder + printable invoice,
+  wishlist, recently viewed, saved addresses, profile photo, notification
+  preferences
 - Product catalog with per-size stock tracking — checkout blocks orders
   that would oversell a size, and decrements stock safely even if two
   people check out for the last unit at the same moment
-- Cart, checkout, order storage, order tracking by order number + email
-- Customer accounts with order history; guest checkout still fully works
 - Promo/discount codes, validated both in the cart and again at checkout
-- Admin login, order status management, product management, promo code
-  management
-- Storefront search
-- Order confirmation emails (once SMTP is configured — see section 6)
-- SEO/social preview tags (Open Graph, Twitter Card) on every storefront
-  page; admin pages are marked `noindex` so they won't show up in search
-- Admin analytics dashboard — revenue (today/month/all-time), order status
-  breakdown, a 30-day revenue trend, best-selling products, top customers
+- Admin panel: order management (search/filter/status/CSV export), product
+  management (with low-stock badges and a bestseller flag), promo codes,
+  contact message inbox, review moderation, and an analytics dashboard
+  (revenue, 30-day trend, best sellers, top customers, low-stock alerts)
+- Emails (once SMTP is configured — see section 6): order confirmation,
+  order status updates, welcome email on signup, contact form notifications
+- Business pages: About, Contact (working form), FAQ, Shipping, Refund &
+  Returns, Privacy Policy — plus trust badges and an honest payment note
+  (Cash on Delivery only; no fake card logos)
+- SEO: Open Graph/Twitter tags and canonical URLs on every page, a
+  dynamically generated `/sitemap.xml` (includes every active product,
+  regenerated on each request — no rebuild step needed), `robots.txt`,
+  and JSON-LD structured data (Organization/WebSite on the homepage,
+  Product/AggregateRating/BreadcrumbList on product pages)
+- Accessibility: skip-to-content link, visible keyboard focus states
+  everywhere, `aria-live` announcements for actions like "added to cart,"
+  `role="alert"` on form errors, `prefers-reduced-motion` support
+- Mobile: bottom tab bar, sticky add-to-cart/checkout bars, larger tap
+  targets, skeleton loading states, lazy-loaded images
 
-**Known limitation:** the social share image (`public/images/og-banner.svg`)
-is an SVG — most platforms handle this fine, but WhatsApp/Facebook link
-previews are most reliable with a real JPG/PNG. Swap that file for an
-exported PNG (1200×630) whenever you have one, no code changes needed.
+**Known limitations worth knowing about:**
+- Review photos and profile pictures are stored as base64 in Postgres —
+  fine at this scale, but swap for real object storage (S3/Cloudinary)
+  before it grows much further
+- "Invoices" are a print-ready HTML page (browser's own Print → Save as
+  PDF), not a generated PDF file — there's no PDF library in this project
+- City autocomplete at checkout is a plain list of major Pakistani cities,
+  not full street-address lookup (that needs a paid Places API key)
+- The social share image (`public/images/og-banner.svg`) is an SVG — most
+  platforms handle this fine, but WhatsApp/Facebook previews are most
+  reliable with a real JPG/PNG. Swap that file for an exported PNG
+  (1200×630) whenever you have one, no code changes needed
 
-**Still ahead** (from the full roadmap — happy to start any of these next):
+**Still ahead** (happy to start any of these next):
 - Payment gateway (needs your merchant account first — JazzCash/Easypaisa/
   PayFast for Pakistan, or Stripe internationally)
-- Product reviews, wishlist, quick view, recently viewed, "Complete the
-  Look" recommendations
-- Flash sales, abandoned-cart recovery, COD verification, courier tracking
+- Flash sales, abandoned-cart recovery, courier tracking integration
 - WhatsApp notifications/support
 - Staff roles/permissions (currently a single admin login with full access)
+- Real generated PDF invoices, and full address autocomplete
 
 Tell me which of those you want next and I'll pick it up the same way as
 everything else here — incrementally, without touching what already works.

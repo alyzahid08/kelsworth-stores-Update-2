@@ -7,6 +7,7 @@ const {
   clearCustomerCookie,
   requireCustomer,
 } = require("../middleware/customerAuth");
+const { sendWelcomeEmail } = require("../lib/email");
 
 const router = express.Router();
 
@@ -43,6 +44,7 @@ router.post("/register", async (req, res) => {
     );
     const customer = rows[0];
     setCustomerCookie(res, signCustomerToken(customer));
+    sendWelcomeEmail(serializeCustomer(customer));
     res.status(201).json(serializeCustomer(customer));
   } catch (err) {
     console.error(err);

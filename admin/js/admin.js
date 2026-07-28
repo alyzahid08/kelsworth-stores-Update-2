@@ -22,6 +22,7 @@ function sidebarHTML(active) {
     <a href="index.html" class="${active === "orders" ? "active" : ""}">Orders</a>
     <a href="products.html" class="${active === "products" ? "active" : ""}">Products</a>
     <a href="promo-codes.html" class="${active === "promo" ? "active" : ""}">Promo Codes</a>
+    <a href="messages.html" class="${active === "messages" ? "active" : ""}">Messages</a>
     <a href="/" target="_blank">View Store ↗</a>
   </nav>
   <div class="spacer"></div>

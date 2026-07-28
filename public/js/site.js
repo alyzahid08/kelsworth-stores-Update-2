@@ -6,6 +6,7 @@ const CART_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const SEARCH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
 const ACCOUNT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.2-3.6 4-5.4 7-5.4S18.8 16.4 20 20"/></svg>`;
 const WISHLIST_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20.5S3.5 15.4 3.5 9.4A4.9 4.9 0 0 1 12 6.2a4.9 4.9 0 0 1 8.5 3.2c0 6-8.5 11.1-8.5 11.1Z"/></svg>`;
+const HOME_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h12v-9"/></svg>`;
 const MENU_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`;
 const CLOSE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 5l14 14M19 5 5 19"/></svg>`;
 
@@ -63,7 +64,7 @@ function headerHTML(active) {
       </div>
       <a class="icon-btn" href="account.html" aria-label="Account">${ACCOUNT_ICON}</a>
       <a class="icon-btn" href="account.html?tab=wishlist" aria-label="Wishlist">${WISHLIST_ICON}</a>
-      <a class="icon-btn" href="cart.html" aria-label="Cart">${CART_ICON}<span class="cart-count" data-cart-count style="display:none">0</span></a>
+      <a class="icon-btn" href="cart.html" aria-label="Cart">${CART_ICON}<span class="cart-count" data-cart-count style="display:none" aria-hidden="true">0</span></a>
       <button class="nav-toggle" id="mobileNavToggle" aria-label="Open menu" type="button">${MENU_ICON}</button>
     </div>
   </div>`;
@@ -83,6 +84,39 @@ function mobileNavHTML(active) {
   <a href="cart.html" style="font-family:var(--font-mono);font-size:13px;text-transform:uppercase;letter-spacing:.08em">View Cart (<span data-cart-count>0</span>)</a>`;
 }
 
+function bottomNavHTML(active) {
+  const items = [
+    { key: "home", href: "index.html", icon: HOME_ICON, label: "Home" },
+    { key: "collection", href: "collection.html", icon: SEARCH_ICON, label: "Shop" },
+    { key: "wishlist", href: "account.html?tab=wishlist", icon: WISHLIST_ICON, label: "Wishlist" },
+    { key: "cart", href: "cart.html", icon: CART_ICON, label: "Cart", showCount: true },
+    { key: "account", href: "account.html", icon: ACCOUNT_ICON, label: "Account" },
+  ];
+  return items
+    .map(
+      (i) => `
+    <a href="${i.href}" class="${i.key === active ? "active" : ""}">
+      ${i.icon}
+      ${i.showCount ? `<span class="bn-count" data-cart-count style="display:none" aria-hidden="true">0</span>` : ""}
+      <span>${i.label}</span>
+    </a>`
+    )
+    .join("");
+}
+
+function trustBadgesHTML() {
+  const badges = [
+    { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M3 11h18M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg>`, label: "Cash on Delivery" },
+    { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3 4 6v6c0 4.5 3.4 7.7 8 9 4.6-1.3 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>`, label: "Secure Checkout" },
+    { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 5v6h6"/></svg>`, label: "14-Day Easy Returns" },
+    { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 3 6v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V6l-9-4Z"/></svg>`, label: "Quality Guaranteed" },
+  ];
+  return `
+    <div class="trust-badges">
+      ${badges.map((b) => `<div class="trust-badge">${b.icon}<span>${b.label}</span></div>`).join("")}
+    </div>`;
+}
+
 function footerHTML() {
   return `
   <div class="footer-top">
@@ -97,6 +131,7 @@ function footerHTML() {
       </form>
     </div>
   </div>
+  ${trustBadgesHTML()}
   <div class="footer-grid">
     <div class="footer-col">
       <h4>Kelsworth</h4>
@@ -119,23 +154,27 @@ function footerHTML() {
     <div class="footer-col">
       <h4>Help</h4>
       <ul>
-        <li><a href="#">Size Guide</a></li>
-        <li><a href="#">Shipping &amp; Returns</a></li>
+        <li><a href="faq.html#sizing">Size Guide</a></li>
+        <li><a href="shipping.html">Shipping &amp; Delivery</a></li>
+        <li><a href="refund.html">Returns &amp; Exchanges</a></li>
         <li><a href="track.html">Track Order</a></li>
-        <li><a href="#">Contact Us</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="contact.html">Contact Us</a></li>
       </ul>
     </div>
     <div class="footer-col">
       <h4>Company</h4>
       <ul>
-        <li><a href="#">About</a></li>
-        <li><a href="#">Store Locations</a></li>
-        <li><a href="#">Careers</a></li>
+        <li><a href="about.html">About Kelsworth</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+        <li><a href="refund.html">Refund Policy</a></li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
     <span>© ${new Date().getFullYear()} Kelsworth. All rights reserved.</span>
+    <span class="payment-note">Payment: Cash on Delivery</span>
     <span>Karachi, Pakistan</span>
   </div>`;
 }
@@ -152,7 +191,57 @@ function addRecentSearch(q) {
 }
 function clearRecentSearches() { localStorage.removeItem(RECENT_SEARCHES_KEY); }
 
+// Shared skeleton placeholder for any page that renders a product grid
+// while data is still loading — avoids every page hand-rolling its own.
+function skeletonCards(n = 4) {
+  return Array.from({ length: n })
+    .map(
+      () => `
+    <div class="product-card skeleton-card">
+      <div class="skeleton-thumb skeleton-block"></div>
+      <div class="skeleton-line skeleton-block"></div>
+      <div class="skeleton-line short skeleton-block"></div>
+    </div>`
+    )
+    .join("");
+}
+
+// Shared "★★★★☆ (12)" snippet for product cards — returns "" when a product
+// has no reviews yet, so cards don't show an empty/zero rating.
+function ratingSnippetHTML(p) {
+  if (!p.reviewCount) return "";
+  const full = Math.round(p.rating);
+  return `<div class="card-rating"><span class="stars">${"★".repeat(full)}${"☆".repeat(5 - full)}</span><span>(${p.reviewCount})</span></div>`;
+}
+
+// A single shared aria-live region for brief status announcements (e.g.
+// "Added to cart") — created once, reused everywhere, so screen reader
+// users get feedback for actions that are otherwise only shown visually.
+function announce(message) {
+  let region = document.getElementById("a11yAnnouncer");
+  if (!region) {
+    region = document.createElement("div");
+    region.id = "a11yAnnouncer";
+    region.setAttribute("aria-live", "polite");
+    region.setAttribute("role", "status");
+    region.className = "sr-only";
+    document.body.appendChild(region);
+  }
+  region.textContent = "";
+  // Re-set on the next tick so repeated identical messages still announce.
+  setTimeout(() => { region.textContent = message; }, 50);
+}
+
 function mountChrome(active) {
+  if (!document.getElementById("skipLink")) {
+    const skipLink = document.createElement("a");
+    skipLink.id = "skipLink";
+    skipLink.href = "#main-content";
+    skipLink.className = "skip-link";
+    skipLink.textContent = "Skip to content";
+    document.body.insertBefore(skipLink, document.body.firstChild);
+  }
+
   const headerEl = document.getElementById("site-header");
   const footerEl = document.getElementById("site-footer");
   if (headerEl) headerEl.innerHTML = headerHTML(active);
@@ -163,6 +252,12 @@ function mountChrome(active) {
   mobileNav.id = "mobileNav";
   mobileNav.innerHTML = mobileNavHTML(active);
   document.body.appendChild(mobileNav);
+
+  const bottomNav = document.createElement("nav");
+  bottomNav.className = "bottom-nav";
+  bottomNav.id = "bottomNav";
+  bottomNav.innerHTML = bottomNavHTML(active);
+  document.body.appendChild(bottomNav);
 
   const openBtn = document.getElementById("mobileNavToggle");
   const closeBtn = document.getElementById("mobileNavClose");

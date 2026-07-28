@@ -199,3 +199,20 @@ CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+
+-- ---- Phase 6: business readiness (homepage merchandising, contact form) ----
+-- is_bestseller: a manual admin flag (not auto-computed from sales) so the
+--   homepage "Best Sellers" row is curated, not a raw sales-ranked list that
+--   could surface something you're out of stock on or don't want featured.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_bestseller BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  email       TEXT NOT NULL,
+  subject     TEXT NOT NULL DEFAULT 'General Inquiry',
+  message     TEXT NOT NULL,
+  is_read     BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_contact_messages_created_at ON contact_messages(created_at);

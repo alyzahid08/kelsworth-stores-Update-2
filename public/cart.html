@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Your Cart — Kelsworth</title>
 <meta name="description" content="Review your cart at Kelsworth before checkout." />
+<meta name="robots" content="noindex, follow" />
 <meta property="og:site_name" content="Kelsworth" />
 <meta property="og:title" content="Your Cart — Kelsworth" />
 <meta property="og:description" content="Review your cart at Kelsworth before checkout." />
@@ -23,12 +24,14 @@
 
 <header class="site-header" id="site-header"></header>
 
-<div class="container">
+<div id="main-content" tabindex="-1" class="container">
   <div class="breadcrumb"><a href="index.html">Home</a> / <span>Cart</span></div>
   <div class="collection-head"><h1>Your Cart</h1></div>
 
   <div id="cartContent">
-    <p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft)">Loading…</p>
+    <div class="skeleton-line skeleton-block" style="height:60px;margin-bottom:16px"></div>
+    <div class="skeleton-line skeleton-block" style="height:100px;margin-bottom:12px"></div>
+    <div class="skeleton-line skeleton-block" style="height:100px"></div>
   </div>
 </div>
 
@@ -64,11 +67,12 @@
     <a class="product-card" href="product.html?id=${p.id}">
       <div class="thumb">
         ${p.badge ? `<span class="badge ${onSale ? "sale" : ""}">${p.badge}</span>` : ""}
-        <img src="${p.image}" alt="${p.name}" loading="lazy" />
+        <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" />
       </div>
       <div class="card-body">
         <span class="cat">${p.category}</span>
         <h3>${p.name}</h3>
+        ${ratingSnippetHTML(p)}
         <div class="price-row">
           ${onSale
             ? `<span class="price was">${formatPKR(p.price)}</span><span class="price now">${formatPKR(p.salePrice)}</span>`

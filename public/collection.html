@@ -7,6 +7,7 @@
 <title>Men's Denim — Kelsworth</title>
 <meta name="description" content="Shop men's denim jeans, jackets and shorts at Kelsworth. Filter by fit, size, price and colour." />
 <meta property="og:site_name" content="Kelsworth" />
+<link rel="canonical" href="https://www.kelsworth.com/collection.html" />
 <meta property="og:title" content="Men's Denim — Kelsworth" />
 <meta property="og:description" content="Shop men's denim jeans, jackets and shorts at Kelsworth. Filter by fit, size, price and colour." />
 <meta property="og:type" content="website" />
@@ -18,12 +19,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.kelsworth.com/index.html" },
+    { "@type": "ListItem", "position": 2, "name": "Men's Denim", "item": "https://www.kelsworth.com/collection.html" }
+  ]
+}
+</script>
 </head>
 <body>
 
 <header class="site-header" id="site-header"></header>
 
-<div class="container">
+<div id="main-content" tabindex="-1" class="container">
   <div class="breadcrumb"><a href="index.html">Home</a> / <span id="crumbLabel">Men's Denim</span></div>
 
   <div class="collection-head">
@@ -210,13 +221,16 @@
     state.inStockOnly = e.target.checked;
     render();
   });
+  let priceDebounce = null;
   document.getElementById("priceMin").addEventListener("input", (e) => {
     state.priceMin = e.target.value ? Number(e.target.value) : null;
-    render();
+    clearTimeout(priceDebounce);
+    priceDebounce = setTimeout(render, 300);
   });
   document.getElementById("priceMax").addEventListener("input", (e) => {
     state.priceMax = e.target.value ? Number(e.target.value) : null;
-    render();
+    clearTimeout(priceDebounce);
+    priceDebounce = setTimeout(render, 300);
   });
   document.getElementById("sortSelect").addEventListener("change", (e) => {
     state.sort = e.target.value;
@@ -256,11 +270,12 @@
       <div class="thumb">
         ${p.badge ? `<span class="badge ${onSale ? "sale" : ""}">${p.badge}</span>` : ""}
         <span class="rivet tl"></span><span class="rivet tr"></span><span class="rivet bl"></span><span class="rivet br"></span>
-        <img src="${p.image}" alt="${p.name}" loading="lazy" />
+        <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" />
       </div>
       <div class="card-body">
         <span class="cat">${p.category}</span>
         <h3>${p.name}</h3>
+        ${ratingSnippetHTML(p)}
         <div class="price-row">
           ${onSale
             ? `<span class="price was">${formatPKR(p.price)}</span><span class="price now">${formatPKR(p.salePrice)}</span>`
@@ -342,12 +357,14 @@
   }
 
   (async () => {
+    document.getElementById("productGrid").innerHTML = skeletonCards(8);
     try {
       ALL_PRODUCTS = await fetchProducts();
       setupFilterUI();
       render();
     } catch (e) {
       document.getElementById("resultsCount").textContent = "Couldn't load products";
+      document.getElementById("productGrid").innerHTML = "";
     }
   })();
 </script>

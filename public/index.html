@@ -18,12 +18,38 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css" />
+<link rel="canonical" href="https://www.kelsworth.com/" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ClothingStore",
+  "name": "Kelsworth",
+  "url": "https://www.kelsworth.com/",
+  "description": "Kelsworth is a Karachi-based denim and workwear label offering premium jeans, jackets, and casualwear with Cash on Delivery nationwide across Pakistan.",
+  "address": { "@type": "PostalAddress", "addressLocality": "Karachi", "addressCountry": "PK" },
+  "priceRange": "Rs. 2000 - Rs. 10000",
+  "sameAs": []
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Kelsworth",
+  "url": "https://www.kelsworth.com/",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://www.kelsworth.com/collection.html?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
 </head>
 <body>
 
 <header class="site-header" id="site-header"></header>
 
-<section class="hero">
+<section id="main-content" tabindex="-1" class="hero">
   <div class="hero-stitch-field"></div>
   <div class="hero-inner">
     <div class="hero-copy">
@@ -36,7 +62,7 @@
       </div>
     </div>
     <div class="hero-visual">
-      <img src="images/hero-featured.svg" alt="Kelsworth trucker jacket, featured this season" />
+      <img src="images/hero-featured.svg" alt="Kelsworth trucker jacket, featured this season" fetchpriority="high" decoding="async" />
       <span class="hero-callout tl">Autumn Drop</span>
       <span class="hero-callout br"><small>Flat 15% Off</small>First Order</span>
     </div>
@@ -72,19 +98,19 @@
   </div>
   <div class="category-circles">
     <a class="circle-tile" href="collection.html?category=polos">
-      <div class="circle-frame"><img src="images/polo-shirt-forest.svg" alt="Polos" /></div>
+      <div class="circle-frame"><img src="images/polo-shirt-forest.svg" alt="Polos" loading="lazy" decoding="async" /></div>
       <span>Polos</span>
     </a>
     <a class="circle-tile" href="collection.html?category=tees">
-      <div class="circle-frame"><img src="images/oversized-tee-charcoal.svg" alt="Tees" /></div>
+      <div class="circle-frame"><img src="images/oversized-tee-charcoal.svg" alt="Tees" loading="lazy" decoding="async" /></div>
       <span>Tees</span>
     </a>
     <a class="circle-tile" href="collection.html?category=half-sleeve-shirts">
-      <div class="circle-frame"><img src="images/half-sleeve-casual-shirt-olive.svg" alt="Half Sleeve Casual Shirts" /></div>
+      <div class="circle-frame"><img src="images/half-sleeve-casual-shirt-olive.svg" alt="Half Sleeve Casual Shirts" loading="lazy" decoding="async" /></div>
       <span>Half Sleeve Shirts</span>
     </a>
     <a class="circle-tile" href="collection.html?category=full-sleeve-shirts">
-      <div class="circle-frame"><img src="images/full-sleeve-casual-shirt-stone.svg" alt="Full Sleeve Casual Shirts" /></div>
+      <div class="circle-frame"><img src="images/full-sleeve-casual-shirt-stone.svg" alt="Full Sleeve Casual Shirts" loading="lazy" decoding="async" /></div>
       <span>Full Sleeve Shirts</span>
     </a>
   </div>
@@ -92,17 +118,28 @@
 
 <div class="category-tiles">
   <a class="tile" href="collection.html?category=jeans">
-    <img src="images/slim-tapered-jeans-indigo.svg" alt="Men's jeans" />
+    <img src="images/slim-tapered-jeans-indigo.svg" alt="Men's jeans" loading="lazy" decoding="async" />
     <div class="tile-label"><span>Jeans</span><small>Shop the range</small></div>
   </a>
   <a class="tile" href="collection.html?category=jackets">
-    <img src="images/denim-trucker-jacket-indigo.svg" alt="Denim jackets" />
+    <img src="images/denim-trucker-jacket-indigo.svg" alt="Denim jackets" loading="lazy" decoding="async" />
     <div class="tile-label"><span>Jackets</span><small>Shop the range</small></div>
   </a>
   <a class="tile" href="collection.html?category=shorts">
-    <img src="images/denim-shorts-midblue.svg" alt="Denim shorts" />
+    <img src="images/denim-shorts-midblue.svg" alt="Denim shorts" loading="lazy" decoding="async" />
     <div class="tile-label"><span>Shorts</span><small>Shop the range</small></div>
   </a>
+</div>
+
+<div class="section-wrap" id="bestSellersWrap" style="display:none">
+  <div class="section-head">
+    <h2>Best Sellers</h2>
+    <hr class="stitch-rule">
+    <a href="collection.html" style="font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">View All →</a>
+  </div>
+  <div class="container" style="margin-top:32px">
+    <div class="product-grid" id="bestSellersGrid"></div>
+  </div>
 </div>
 
 <div class="section-wrap">
@@ -112,9 +149,7 @@
     <a href="collection.html" style="font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">View All →</a>
   </div>
   <div class="container" style="margin-top:32px">
-    <div class="product-grid" id="newInGrid">
-      <p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft)">Loading products…</p>
-    </div>
+    <div class="product-grid" id="newInGrid"></div>
   </div>
 </div>
 
@@ -136,6 +171,16 @@
   </div>
 </div>
 
+<div class="section-wrap" id="testimonialsWrap" style="display:none">
+  <div class="section-head">
+    <h2>What Customers Are Saying</h2>
+    <hr class="stitch-rule">
+  </div>
+  <div class="container" style="margin-top:28px">
+    <div class="testimonial-grid" id="testimonialsGrid"></div>
+  </div>
+</div>
+
 <footer class="site-footer" id="site-footer"></footer>
 
 <script src="js/api.js"></script>
@@ -151,11 +196,12 @@
       <div class="thumb">
         ${p.badge ? `<span class="badge ${onSale ? "sale" : ""}">${p.badge}</span>` : ""}
         <span class="rivet tl"></span><span class="rivet tr"></span><span class="rivet bl"></span><span class="rivet br"></span>
-        <img src="${p.image}" alt="${p.name}" loading="lazy" />
+        <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" />
       </div>
       <div class="card-body">
         <span class="cat">${p.category}</span>
         <h3>${p.name}</h3>
+        ${ratingSnippetHTML(p)}
         <div class="price-row">
           ${onSale
             ? `<span class="price was">${formatPKR(p.price)}</span><span class="price now">${formatPKR(p.salePrice)}</span>`
@@ -165,14 +211,43 @@
     </a>`;
   }
 
+  function testimonialCardHTML(r) {
+    const full = Math.round(r.rating);
+    return `
+    <div class="testimonial-card">
+      <span class="stars">${"★".repeat(full)}${"☆".repeat(5 - full)}</span>
+      ${r.title ? `<h4>${r.title}</h4>` : ""}
+      <p>${r.body.length > 220 ? r.body.slice(0, 220) + "…" : r.body}</p>
+      <div class="testimonial-meta">
+        <span>${r.customerName}${r.verifiedPurchase ? " · Verified Purchase" : ""}</span>
+        <a href="product.html?id=${r.productId}">${r.productName}</a>
+      </div>
+    </div>`;
+  }
+
   (async () => {
     const grid = document.getElementById("newInGrid");
+    grid.innerHTML = skeletonCards(6);
     try {
       const products = await fetchProducts();
       grid.innerHTML = products.slice(0, 6).map(productCardHTML).join("");
+
+      const bestSellers = products.filter((p) => p.isBestseller).slice(0, 4);
+      if (bestSellers.length) {
+        document.getElementById("bestSellersWrap").style.display = "block";
+        document.getElementById("bestSellersGrid").innerHTML = bestSellers.map(productCardHTML).join("");
+      }
     } catch (e) {
       grid.innerHTML = `<p style="font-family:var(--font-mono);font-size:12px;color:var(--accent)">Couldn't load products right now.</p>`;
     }
+
+    try {
+      const reviews = await fetchFeaturedReviews(6);
+      if (reviews.length) {
+        document.getElementById("testimonialsWrap").style.display = "block";
+        document.getElementById("testimonialsGrid").innerHTML = reviews.map(testimonialCardHTML).join("");
+      }
+    } catch (e) {}
   })();
 </script>
 </body>

@@ -2,18 +2,53 @@
    Talks to the Express backend instead of using a static product array. */
 
 let _productsCache = null;
+const PRODUCTS_CACHE_KEY = "vw_products_cache_v1";
+const PRODUCTS_CACHE_TTL_MS = 60 * 1000; // short — admin edits should show up quickly
 
 async function fetchProducts() {
   if (_productsCache) return _productsCache;
+
+  // This is a full multi-page site (no SPA router), so every navigation is a
+  // fresh page load — an in-memory cache alone only helps within one page.
+  // A short-lived sessionStorage cache means clicking Home → Collection →
+  // Product → Cart doesn't refetch the whole catalog at every stop.
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(PRODUCTS_CACHE_KEY) || "null");
+    if (cached && Date.now() - cached.at < PRODUCTS_CACHE_TTL_MS) {
+      _productsCache = cached.data;
+      return _productsCache;
+    }
+  } catch (e) {}
+
   const res = await fetch("/api/products");
   if (!res.ok) throw new Error("Failed to load products");
   _productsCache = await res.json();
+  try {
+    sessionStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify({ at: Date.now(), data: _productsCache }));
+  } catch (e) {}
   return _productsCache;
 }
 
 async function searchProducts(q, limit = 6) {
   const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=${limit}`);
   if (!res.ok) return { query: q, products: [], categories: [] };
+  return res.json();
+}
+
+async function submitContactMessage(payload) {
+  const res = await fetch("/api/contact", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Could not send your message");
+  return data;
+}
+
+async function fetchFeaturedReviews(limit = 6) {
+  const res = await fetch(`/api/products/reviews/featured?limit=${limit}`);
+  if (!res.ok) return [];
   return res.json();
 }
 

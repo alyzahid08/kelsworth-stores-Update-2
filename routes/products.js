@@ -4,6 +4,15 @@ const { requireCustomer, attachCustomerIfPresent } = require("../middleware/cust
 
 const router = express.Router();
 
+// Reused by any query that needs per-product rating aggregates alongside the
+// row itself — avoids a second round trip or N+1 queries for star ratings.
+const RATINGS_JOIN = `
+  LEFT JOIN (
+    SELECT product_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+    FROM product_reviews GROUP BY product_id
+  ) ratings ON ratings.product_id = p.id
+`;
+
 function serializeProduct(row) {
   const stockBySize = row.stock_by_size || {};
   const sizesOutOfStock = (row.sizes || []).filter(
@@ -50,6 +59,9 @@ function serializeProduct(row) {
     material: row.material,
     stretch: row.stretch || "none",
     collection: row.collection || null,
+    isBestseller: Boolean(row.is_bestseller),
+    rating: row.rating_avg ? Number(row.rating_avg) : 0,
+    reviewCount: row.review_count ? Number(row.review_count) : 0,
   };
 }
 
@@ -69,6 +81,8 @@ function lightProductCard(row) {
     image: row.image,
     badge: row.badge,
     defaultSize: firstAvailableSize,
+    rating: row.rating_avg ? Number(row.rating_avg) : 0,
+    reviewCount: row.review_count ? Number(row.review_count) : 0,
   };
 }
 
@@ -76,8 +90,16 @@ function lightProductCard(row) {
 router.get("/", async (req, res) => {
   try {
     const { rows } = await query(
-      "SELECT * FROM products WHERE active = true ORDER BY id ASC"
+      `SELECT p.*, ratings.avg_rating AS rating_avg, ratings.review_count AS review_count
+       FROM products p
+       ${RATINGS_JOIN}
+       WHERE p.active = true ORDER BY p.id ASC`
     );
+    // Short and public: the catalog doesn't change every second, and this
+    // response has nothing customer-specific in it, so a brief cache takes
+    // real load off the DB on a busy storefront without noticeably delaying
+    // an admin's price/stock change from showing up.
+    res.set("Cache-Control", "public, max-age=30");
     res.json(rows.map(serializeProduct));
   } catch (err) {
     console.error(err);
@@ -135,6 +157,7 @@ router.get("/search", async (req, res) => {
       key, label: CATEGORY_LABELS[key] || key, count,
     }));
 
+    res.set("Cache-Control", "public, max-age=30");
     res.json({ query: q, products, categories });
   } catch (err) {
     console.error(err);
@@ -142,14 +165,56 @@ router.get("/search", async (req, res) => {
   }
 });
 
+// GET /api/products/reviews/featured?limit=6 — best reviews across the whole
+// catalog, for the homepage testimonials section. "Best" = highest rating,
+// then most helpful votes, then most recent. Registered before /:slug so
+// "reviews" is never mistaken for a product slug.
+router.get("/reviews/featured", async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 6, 20);
+  try {
+    const { rows } = await query(
+      `SELECT r.id, r.customer_name, r.rating, r.title, r.body, r.verified_purchase, r.helpful_count, r.created_at,
+              p.name AS product_name, p.slug AS product_slug
+       FROM product_reviews r
+       JOIN products p ON p.id = r.product_id AND p.active = true
+       WHERE r.rating >= 4 AND length(r.body) > 20
+       ORDER BY r.rating DESC, r.helpful_count DESC, r.created_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.set("Cache-Control", "public, max-age=60");
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        customerName: r.customer_name,
+        rating: r.rating,
+        title: r.title,
+        body: r.body,
+        verifiedPurchase: r.verified_purchase,
+        helpfulCount: r.helpful_count,
+        createdAt: r.created_at,
+        productName: r.product_name,
+        productId: r.product_slug,
+      }))
+    );
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not load featured reviews" });
+  }
+});
+
 // GET /api/products/:slug — single product by slug (e.g. vw-101)
 router.get("/:slug", async (req, res) => {
   try {
     const { rows } = await query(
-      "SELECT * FROM products WHERE slug = $1 AND active = true",
+      `SELECT p.*, ratings.avg_rating AS rating_avg, ratings.review_count AS review_count
+       FROM products p
+       ${RATINGS_JOIN}
+       WHERE p.slug = $1 AND p.active = true`,
       [req.params.slug]
     );
     if (!rows.length) return res.status(404).json({ error: "Product not found" });
+    res.set("Cache-Control", "public, max-age=30");
     res.json(serializeProduct(rows[0]));
   } catch (err) {
     console.error(err);
@@ -190,7 +255,9 @@ router.get("/:slug/variants", async (req, res) => {
     let curated = [];
     if (wantedSlugs.length) {
       const { rows: curatedRows } = await query(
-        "SELECT * FROM products WHERE slug = ANY($1::text[]) AND active = true",
+        `SELECT p.*, ratings.avg_rating AS rating_avg, ratings.review_count AS review_count
+         FROM products p ${RATINGS_JOIN}
+         WHERE p.slug = ANY($1::text[]) AND p.active = true`,
         [wantedSlugs]
       );
       curated = curatedRows;
@@ -198,7 +265,9 @@ router.get("/:slug/variants", async (req, res) => {
     const bySlug = Object.fromEntries(curated.map((r) => [r.slug, lightProductCard(r)]));
 
     const { rows: relatedRows } = await query(
-      "SELECT * FROM products WHERE category = $1 AND slug != $2 AND active = true ORDER BY id ASC LIMIT 8",
+      `SELECT p.*, ratings.avg_rating AS rating_avg, ratings.review_count AS review_count
+       FROM products p ${RATINGS_JOIN}
+       WHERE p.category = $1 AND p.slug != $2 AND p.active = true ORDER BY p.id ASC LIMIT 8`,
       [product.category, product.slug]
     );
 
